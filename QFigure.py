@@ -28,6 +28,7 @@ class QFigure(QtWidgets.QWidget):
         self.xlabel = kwargs.get('xlabel', '')
         self.ylabel = kwargs.get('ylabel', '')
 
+        self.makeLineEdit()
         self.make_pickable(None)
 
         self.canvas.mpl_connect('draw_event', self.make_pickable)
@@ -41,7 +42,9 @@ class QFigure(QtWidgets.QWidget):
         xticks = self.axes.get_xaxis().get_major_ticks()
         yticks = self.axes.get_yaxis().get_major_ticks()
 
-        for (i, tick) in enumerate([xticks[0], xticks[-1], yticks[0], yticks[-1]]):
+        self.pickableTicks = [xticks[0], xticks[-1], yticks[0], yticks[-1]]
+
+        for (i, tick) in enumerate(self.pickableTicks):
             tick.label.set_picker(True)
             tick.label.set_gid(i)
 
@@ -50,42 +53,66 @@ class QFigure(QtWidgets.QWidget):
             t.set_picker(None)
             t.set_gid(None)
 
+        self.pickableTicks = []
+
     def pickFilter(self, event):
         # print('Artist: {}'.format(event.artist))
         # print('GID: {}'.format(event.artist.get_gid()))
         # print(event.mouseevent)
 
-        if event.mouseevent.dblclick:
-            self.editLimit(event.artist)
+        if event.artist.get_gid() in range(4):
+            if event.mouseevent.dblclick:
+                self.editLimit(event.artist)
 
     def editLimit(self, label):
-        if not label.get_gid() in range(4):
-            return
-
-        # print(label.get_fontsize())
-        # print(label.get_fontname())
-
-        self.makeLineEdit(label)
-
+        self.showLineEdit(label)
         self.drawnow()
 
-    def makeLineEdit(self, label):
+    def showLineEdit(self, label):
+        [t.label.set_visible(True) for t in self.pickableTicks]
 
-        bbox = label.get_window_extent()
+        tickbbox = label.get_window_extent()
+        # print(tickbbox)
+        canvas_geometry = self.canvas.geometry()
+
+        editbbox = [
+            canvas_geometry.left() + tickbbox.x0,
+            canvas_geometry.bottom() - tickbbox.y1,
+            tickbbox.x1 - tickbbox.x0,
+            tickbbox.y1 - tickbbox.y0
+        ]
+
+        current = label.get_text()
         label.set_visible(False)
 
-        self.limEditor = QtWidgets.QLineEdit(self.parent())
-        # self.limEditor.setGeometry(bbox.x0, bbox.y0, bbox.x1, bbox.y1)
+        if not hasattr(self, 'limEditor'):
+            self.makeLineEdit()
 
-        # self.limEditor.setTextMargins(bbox.x0)
+        self.limEditor.setText(current)
+        self.limEditor.setCursorPosition(len(current))
+        self.limEditor.selectAll()
+        self.limEditor.setGeometry(*editbbox)
+        self.limEditor.editingFinished.connect(self.hideLineEditor)
+        self.limEditor.show()
+        # self.limEditor.hide() # can later hide it
 
+    def hideLineEditor(self):
+        self.limEditor.hide()
+        [t.label.set_visible(True) for t in self.pickableTicks]
+        self.drawnow()
 
-    # def mousePressEvent(self, event):
-    #     print('Mouse Event')
-    #     if event.button() == QtCore.Qt.LeftButton:
-    #         print("Left Button Clicked")
-    #     elif event.button() == QtCore.Qt.RightButton:
-    #         print("Right Button Clicked")
+    def makeLineEdit(self):
+        # things to do only first time
+        fontname = matplotlib.rcParams['font.family'][0]
+        fontsize = matplotlib.rcParams['font.size']
+        bold = QtGui.QFont.Bold
+        qfont = QtGui.QFont(fontname, fontsize) # can use bold as 3rd arg
+        self.limEditor = QtWidgets.QLineEdit(self)
+        self.limEditor.hide()
+        self.limEditor.setFont(qfont)
+        self.limEditor.setFrame(False)
+
+        # set up callback?
 
     def plot(self, *args, **kwargs):
         self.axes.plot(*args, **kwargs)
