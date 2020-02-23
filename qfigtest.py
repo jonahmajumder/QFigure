@@ -19,7 +19,7 @@ figWidget = QFigure()
 def genFcn():
 	data = np.random.random(10)
 	figWidget.cleardata()
-	figWidget.plot(np.random.random(10)-.5, np.random.random(10)-.5)
+	figWidget.plot(np.random.random(10)-.5, np.random.random(10)-.5, 'bo')
 
 timer = QTimer()
 timer.timeout.connect(genFcn)
